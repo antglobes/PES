@@ -1,0 +1,5 @@
+function on_game_start()
+    RegisterScriptCallback("on_specific_character_dialog_list", function(character_id, dialog_list)
+        dialog_list:add("pes_give_explosives")
+    end)
+end

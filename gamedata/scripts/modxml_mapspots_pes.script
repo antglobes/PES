@@ -1,0 +1,25 @@
+--[[
+Author: Antglobes
+Last Modified: 28/01/25
+Purpose: Add New Map Spots
+]]
+
+--- Author: Catspaw 
+--- Sourced: 28/01/25
+function on_xml_read()
+    RegisterScriptCallback("on_xml_read", 
+        function(xml_file_name, xml_obj)
+            if  (xml_file_name == [[ui\map_spots.xml]]) or
+                (xml_file_name == [[ui\map_spots_16.xml]]) or
+                (xml_file_name == [[ui\map_spots_21.xml]]) then
+                printf("DXML is patching mapspots for PES in %s",xml_file_name)
+                
+                local paw_mapspots_include = 
+[[
+#include "ui\map_spots_pes.xml"
+]]
+                xml_obj:insertFromXMLString(paw_mapspots_include)
+            end
+        end
+    )
+end

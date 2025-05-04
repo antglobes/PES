@@ -1,0 +1,13 @@
+<w>
+    <file name="ui\mapspots_pes">
+        <texture id="ied_remote_spot"     x="0"   y="0"   width="50" height="50" /> 
+        <texture id="ied_prox_spot"       x="0"   y="50"  width="50" height="50" />
+        <texture id="ied_timer_spot"      x="0"   y="100" width="50" height="50" />
+        <texture id="ied_pocket_spot"     x="0"   y="150" width="50" height="50" />
+
+        <texture id="ied_rpg_remote_spot" x="50"  y="0"   width="50" height="50" /> 
+        <texture id="ied_rpg_prox_spot"   x="50"  y="50"  width="50" height="50" />
+        <texture id="ied_rpg_timer_spot"  x="50"  y="100" width="50" height="50" />
+        <texture id="ied_rpg_pocket_spot" x="50"  y="150" width="50" height="50" />
+    </file>
+</w>

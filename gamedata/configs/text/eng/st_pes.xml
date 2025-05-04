@@ -1,0 +1,319 @@
+<?xml version="1.0" encoding="windows-1251" ?>
+
+<string_table>
+	<!-- MCM -->
+	<string id="ui_mcm_menu_pes">
+		<text>PES</text>
+	</string>
+	<string id="ui_mcm_pes_title">
+		<text>Placeable Explosives</text>
+	</string>
+	<string id="ui_mcm_pes_trigger_key">
+		<text>Trigger Remote Explosives</text>
+	</string>
+	<string id="ui_mcm_pes_min_forget_time">
+		<text>Minimum Time to Forget Witnessing Explosives Planting</text>
+	</string>
+	<string id="ui_mcm_pes_max_forget_time">
+		<text>Maximum Time to Forget Witnessing Explosives Planting</text>
+	</string>
+	<string id="ui_mcm_pes_fuse_time">
+		<text>Inital Trigger Delay</text>
+	</string>
+	<string id="ui_mcm_pes_allow_map_markers">
+		<text>Show Map Markers</text>
+	</string>
+	<string id="ui_mcm_pes_trigger_radius">
+		<text>Minimum Distance To Trigger Proximity Explosives</text>
+	</string>
+	<string id="ui_mcm_pes_pocket_plant_dist">
+		<text>Minimum Distance To Plant an Explosive on an NPC</text>
+	</string>
+	<string id="ui_mcm_pes_radio_trigger_dist">
+		<text>Maximum Distance a Remote Explosive can be Triggered</text>
+	</string>
+	<string id="ui_mcm_pes_timed_explosive_delay">
+		<text>Time Until a Timed Explosive Self-Detonates</text>
+	</string>
+	<string id="ui_mcm_pes_proximity_explosive_delay">
+		<text>Time Until a Proximity Explosive Can be Triggered</text>
+	</string>
+	<string id="ui_mcm_pes_pocket_timed_explosive_delay_short">
+		<text>Short Option: Time Until a Pocket Timed Explosive Self-Detonates</text>
+	</string>
+	<string id="ui_mcm_pes_pocket_timed_explosive_delay_long">
+		<text>Long Option: Time Until a Pocket Timed Explosive Self-Detonates</text>
+	</string>
+
+	<string id="ui_mcm_pes_enable_debug">
+		<text>Enable Debugging</text>
+	</string>	
+	<string id="ui_mcm_pes_debug_level">
+		<text>Debugging Level</text>
+	</string>
+	
+	<string id="ui_mcm_lst_all">
+		<text>Show All Debugging Messages</text>
+	</string>	
+	<string id="ui_mcm_lst_dev">
+		<text>Show Developer Debugging Messages</text>
+	</string>	
+	<string id="ui_mcm_lst_player">
+		<text>Show Player Debugging Messages</text>
+	</string>
+
+	<!-- Msgs -->
+	<string id="st_explosive_armed">
+		<text>Cannot pickup armed explosive</text>
+	</string>
+
+	<string id="st_explosive_disarmed">
+		<text>Disarming %s</text>
+	</string>
+
+	<string id="st_explosive_planted_proximity">
+		<text>Planted proximity explosive with 5 second delay, armed with code %s</text>
+	</string>
+
+	<string id="st_explosive_planted_timer">
+		<text>Planted timed explosive with %s second delay, armed with code %s</text>
+	</string>
+
+	<string id="st_plant_explosive_pocket_map_marker">
+		<text>Pocket %s</text>
+	</string>
+
+	<string id="st_explosive_planted_pocket">
+		<text>Planted pocket explosive armed with code %s</text>
+	</string>
+
+    <!-- Taken from x's Remote Controlled Explosives Mod -->
+    <string id="st_plant_explosive_remote">
+		<text>plant with remote trigger</text>
+	</string>
+	
+	<string id="st_plant_explosive_remote_pocket">
+		<text>Rig %s pocket with remote trigger</text>
+	</string>
+
+	<string id="st_plant_explosive_pocket_timed">
+		<text>Rig %s pocket with %s second timer</text>
+	</string>
+	
+	<string id="st_plant_explosive_pocket_timed_10">
+		<text>Rig %s pocket with 10 seconds timer</text>
+	</string>
+	
+	<string id="st_plant_explosive_pocket_timed_30">
+		<text>Rig %s pocket with 30 seconds timer</text>
+	</string>
+	
+	<string id="st_plant_explosive_remote_freq">
+		<text>Remote explosive planted with frequency of</text>
+	</string>
+	
+	<string id="st_plant_explosive_pocket_planted">
+		<text>Pocket timed explosive planted</text>
+	</string>
+
+	<string id="st_plant_explosive_remote_map_marker">
+		<text>can be triggered by radio frequency of %s</text>
+	</string>
+	
+	<string id="st_plant_explosive_remote_mine_new">
+		<text>Anti Personnel Mine</text>
+	</string>
+	
+	<string id="st_plant_explosive_remote_ied_rpg_new">
+		<text>OG-7V Warhead IED</text>
+	</string>
+	
+	<string id="st_plant_explosive_remote_ied_new">
+		<text>IED on chemical base</text>
+	</string>
+	
+	<string id="st_plant_explosive_remote_map_marker_pt1">
+		<text>Remote %s</text>
+	</string>
+
+    <string id="st_plant_explosive_proximity_map_marker">
+		<text>Proximity %s</text>
+	</string>
+	
+	<string id="st_plant_explosive_timed_map_marker">
+		<text>Timed %s</text>
+	</string>
+	<string id="st_plant_explosive_map_marker_attached_to">
+		<text>Attached to</text>
+	</string>
+	<string id="st_plant_explosive_map_marker_from">
+		<text>from</text>
+	</string>
+	
+	
+	
+	
+	<string id="st_rigged_community_stalker">
+		<text>Free Stalkers</text>
+	</string>
+	<string id="st_rigged_community_bandit">
+		<text>Bandits</text>
+	</string>
+	<string id="st_rigged_community_csky">
+		<text>Clear Sky</text>
+	</string>
+	<string id="st_rigged_community_army">
+		<text>Military</text>
+	</string>
+	<string id="st_rigged_community_freedom">
+		<text>Freedom</text>
+	</string>
+	<string id="st_rigged_community_dolg">
+		<text>Duty</text>
+	</string>
+	<string id="st_rigged_community_ecolog">
+		<text>Ecologists</text>
+	</string>
+	<string id="st_rigged_community_killer">
+		<text>Mercenaries</text>
+	</string>
+	<string id="st_rigged_community_monolith">
+		<text>Monolith</text>
+	</string>
+	<string id="st_rigged_community_renegade">
+		<text>Renegades</text>
+	</string>
+	<string id="st_rigged_community_greh">
+		<text>Sin</text>
+	</string>
+	<string id="st_rigged_community_isg">
+		<text>ISG</text>
+	</string>
+	<string id="st_rigged_community_zombied">
+		<text>Zombies</text>
+	</string>
+	<string id="st_rigged_community_unknown">
+		<text>unknown group</text>
+	</string>
+	
+	<string id="st_rigged_msg_comp_1">
+		<text>What, you want me to carry this box for you? What's inside? None of my business? Fine, whatever, you're the boss here.</text>
+	</string>
+	
+	<string id="st_rigged_msg_comp_2">
+		<text>Seriously, you want me to carry explosives for you? I guess you are the leader here, but better not blow this up while i'm still holding it!</text>
+	</string>
+	
+	<string id="st_rigged_msg_comp_3">
+		<text>Hey boss, i'm not feeling great about carrying these explosives you've given me. Is this light supposed to be flashing red right now?</text>
+	</string>
+	
+	<string id="st_rigged_msg_comp_4">
+		<text>Another box to carry? This better not be heavy.</text>
+	</string>
+	
+	<string id="st_rigged_msg_friend_1">
+		<text>What, you want me to deliver this package? What's inside? Just some supplies? Fine, i will do it at some point, but i better get paid afterwards.</text>
+	</string>
+	
+	<string id="st_rigged_msg_friend_2">
+		<text>You are giving me a gift? Wow, so those good things people say about you must be true then. Thanks. I will open it once i get back to my storage locker.</text>
+	</string>
+	
+	<string id="st_rigged_msg_friend_3">
+		<text>What's this, an artifact in a special container? You want me to get this to the bunker? Sure, if they pay me for this, i will do it.</text>
+	</string>
+	
+	<string id="st_rigged_msg_friend_decline_1">
+		<text>A gift? For me? Thanks... wait, why are there wires sticking out of the box? Uh, i think i'll pass.</text>
+	</string>
+	
+	<string id="st_rigged_msg_friend_decline_2">
+		<text>Sorry, i can't hold any more things, my backpack is already full of stuff.</text>
+	</string>
+	
+	<string id="st_rigged_msg_friend_decline_3">
+		<text>Sorry, pal, i don't accept boxes from strangers since that one time one of my squadmates got one and blew up.</text>
+	</string>
+	
+	<string id="st_rigged_msg_neutral_1">
+		<text>You want me to deliver a package? Is the receiver going to pay me well for this? Yes? Whatever, give it here.</text>
+	</string>
+	
+	<string id="st_rigged_msg_neutral_2">
+		<text>You are giving me a gift? I don't even know you, why should i take this? Fine, give it to me, i'm just gonna go and sell it to whoever wants it.</text>
+	</string>
+	
+	<string id="st_rigged_msg_neutral_3">
+		<text>You want me to deliver an artifact to the bunker? But what if the container leaks radiation? Who are you callin' a wuss? Screw it, i will deliver this, but they better pay me well!</text>
+	</string>
+	
+	<string id="st_rigged_msg_neutral_decline_1">
+		<text>You want me to deliver a package? Who do i look like to you, a goddamn mailman? Piss off.</text>
+	</string>
+	
+	<string id="st_rigged_msg_neutral_decline_2">
+		<text>What's this? A gift? I don't even know you. Give that shit to someone else.</text>
+	</string>
+	
+	<string id="st_rigged_msg_neutral_decline_3">
+		<text>You want me to deliver an artifact to the bunker? Why don't you do it yourself? I don't want to deal with the radiation, if the container happens to be faulty.</text>
+	</string>
+	
+	<string id="st_rigged_msg_enemy_1">
+		<text>What the hell is that? Oh shit, get this thing off of me!</text>
+	</string>
+	
+	<string id="st_rigged_msg_enemy_2">
+		<text>Ah, shit, it's a bomb! Get it off, get it off!</text>
+	</string>
+	
+	<string id="st_rigged_msg_enemy_detach_start_1">
+		<text>Come on, how do i detach this crap?! Where do i cut?</text>
+	</string>
+	
+	<string id="st_rigged_msg_enemy_detach_start_2">
+		<text>Damn it, how do i pull this thing off?</text>
+	</string>
+	
+	<string id="st_rigged_msg_enemy_detach_fail_1">
+		<text>Oh no</text>
+	</string>
+	
+	<string id="st_rigged_msg_enemy_detach_fail_2">
+		<text>Shit</text>
+	</string>
+	
+	<string id="st_rigged_msg_enemy_detaching_1">
+		<text>"It's... working! Screw this thing!"</text>
+	</string>
+	
+	<string id="st_rigged_msg_enemy_detaching_2">
+		<text>"I got it, i got it!"</text>
+	</string>
+	
+	<string id="st_rigged_msg_wounded_1">
+		<text>What... are you doing..? No... please... not like this...</text>
+	</string>
+	
+	<string id="st_rigged_msg_wounded_2">
+		<text>What the hell is this? Are you turning me into a bait now? Just shoot me in the head already!</text>
+	</string>
+	
+	<string id="st_rigged_msg_wounded_3">
+		<text>Please don't make me die this way... I would rather get shot in the head...</text>
+	</string>
+	
+	<string id="st_rigged_msg_wounded_4">
+		<text>You bastard... you will pay for this...</text>
+	</string>
+	
+	<string id="st_plant_explosive_remote_pocket_cant_sneak_plant_while_being_seen">
+		<text>Can't plant pocket bombs while people are watching</text>
+	</string>
+	
+	<string id="st_plant_explosive_remote_pocket_nobody_unrigged_and_alive_nearby">
+		<text>Nobody alive without a bomb nearby</text>
+	</string>
+	
+</string_table>

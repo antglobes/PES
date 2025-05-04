@@ -1,0 +1,324 @@
+-- Imports
+contains = ag_tables.contains
+
+-- Utilities
+DETONATE_MODES = pes_utils.DETONATE_MODES
+set_debug_level =  pes_utils.set_debug_level
+filter_debug_msg = pes_utils.filter_debug_msg
+
+-- Constants
+GUI = nil
+FREQ_MIN = item_radio._min
+FREQ_MAX = item_radio._max
+
+-- Variables
+local dbg_lvl = "player"
+
+-- Sounds
+snd_keypress = sound_object("pes\\keypad_press")
+snd_armed = sound_object("pes\\ied_armed")
+snd_disarmed = sound_object("pes\\ied_disarmed")
+snd_incorrect = sound_object("pes\\incorrect_code")
+
+-- Debugging
+function pr(str, ...)
+	if not filter_debug_msg(dbg_lvl) then return end
+	pes_utils.dbg_pr("[PES|UI: %s", str, ...)
+end
+
+-- UI
+function start_ui(obj_id)
+    if get_hud() then
+        hide_hud_inventory()
+    end
+
+    if not GUI then
+        GUI = UIExplosiveNumpad()
+    end
+
+    if GUI and not GUI:IsShown() then
+		GUI:Reset(obj_id)
+        GUI:ShowDialog(true)
+        Register_UI("UIExplosiveNumpad")
+    end
+end
+
+class "UIExplosiveNumpad" (CUIScriptWnd)
+function UIExplosiveNumpad:__init() super()
+    self:InitControls()
+    self:InitCallBacks()
+end
+
+function UIExplosiveNumpad:Reset(obj_id)
+	self.explosive_id = obj_id
+end
+
+function UIExplosiveNumpad:__finalize()
+end
+
+
+function UIExplosiveNumpad:InitControls()
+	self:SetWndPos			(vector2():set(342,199))
+	self:SetWndSize			(vector2():set(339,369))
+	local xml = CScriptXmlInit()
+	xml:ParseFile("ui_numpad_wnd.xml")
+	xml:InitStatic("background", self)
+	self.st =  xml:InitStatic("edit_box", self)
+	self.st:SetWindowName("edit_window")
+	self:Register(xml:Init3tButton("btn_0", self),"btn_0")
+	self:Register(xml:Init3tButton("btn_1", self),"btn_1")
+	self:Register(xml:Init3tButton("btn_2", self),"btn_2")
+	self:Register(xml:Init3tButton("btn_3", self),"btn_3")
+	self:Register(xml:Init3tButton("btn_4", self),"btn_4")
+	self:Register(xml:Init3tButton("btn_5", self),"btn_5")
+	self:Register(xml:Init3tButton("btn_6", self),"btn_6")
+	self:Register(xml:Init3tButton("btn_7", self),"btn_7")
+	self:Register(xml:Init3tButton("btn_8", self),"btn_8")
+	self:Register(xml:Init3tButton("btn_9", self),"btn_9")
+
+	self:Register(xml:Init3tButton("btn_c",			self),	"btn_c")
+	self:Register(xml:Init3tButton("btn_backspase",	self),	"btn_backspase")
+	self:Register(xml:Init3tButton("btn_enter",		self),	"btn_enter")
+	self:Register(xml:Init3tButton("btn_cancel",	self),	"btn_cancel")
+end
+
+function UIExplosiveNumpad:InitCallBacks()
+	-- new game
+	self:AddCallback("btn_enter",	ui_events.BUTTON_CLICKED,	self.OnButton_OK_clicked,		self)
+	self:AddCallback("btn_cancel",	ui_events.BUTTON_CLICKED,	self.Close,	self)
+
+	self:AddCallback("btn_0",		ui_events.BUTTON_CLICKED,	self.OnButton_0_clicked,		self)
+	self:AddCallback("btn_1",		ui_events.BUTTON_CLICKED,	self.OnButton_1_clicked,		self)
+	self:AddCallback("btn_2",		ui_events.BUTTON_CLICKED,	self.OnButton_2_clicked,		self)
+	self:AddCallback("btn_3",		ui_events.BUTTON_CLICKED,	self.OnButton_3_clicked,		self)
+	self:AddCallback("btn_4",		ui_events.BUTTON_CLICKED,	self.OnButton_4_clicked,		self)
+	self:AddCallback("btn_5",		ui_events.BUTTON_CLICKED,	self.OnButton_5_clicked,		self)
+	self:AddCallback("btn_6",		ui_events.BUTTON_CLICKED,	self.OnButton_6_clicked,		self)
+	self:AddCallback("btn_7",		ui_events.BUTTON_CLICKED,	self.OnButton_7_clicked,		self)
+	self:AddCallback("btn_8",		ui_events.BUTTON_CLICKED,	self.OnButton_8_clicked,		self)
+	self:AddCallback("btn_9",		ui_events.BUTTON_CLICKED,	self.OnButton_9_clicked,		self)
+
+	self:AddCallback("btn_c",			ui_events.BUTTON_CLICKED,	self.OnButton_c_clicked,			self)
+	self:AddCallback("btn_backspase",	ui_events.BUTTON_CLICKED,	self.OnButton_backspace_clicked,	self)
+end
+
+function UIExplosiveNumpad:AddNumber(number)
+	local text = self.st:TextControl():GetText()
+
+	if text == nil then
+		text = "" .. number
+	else
+		if (string.len(text) > 3) then
+			return
+		end
+
+		text = text .. number
+	end
+	self.st:TextControl():SetText(text)
+	snd_keypress:play(db.actor, 0, sound_object.s2d)
+end
+
+function UIExplosiveNumpad:OnButton_backspace_clicked()
+	local text = self.st:TextControl():GetText()
+
+	if text == nil then
+		return
+	end
+
+	local b = 1
+	local e = string.len(text) - 1
+
+	text = string.sub(text, b, e)
+
+	self.st:TextControl():SetText(text)
+	snd_keypress:play(db.actor, 0, sound_object.s2d)
+end
+
+function UIExplosiveNumpad:OnButton_c_clicked()
+	self.st:TextControl():SetText("")
+	snd_keypress:play(db.actor, 0, sound_object.s2d)
+end
+
+function UIExplosiveNumpad:OnButton_0_clicked()
+	self:AddNumber(0)
+end
+
+function UIExplosiveNumpad:OnButton_1_clicked()
+	self:AddNumber(1)
+end
+
+function UIExplosiveNumpad:OnButton_2_clicked()
+	self:AddNumber(2)
+end
+
+function UIExplosiveNumpad:OnButton_3_clicked()
+	self:AddNumber(3)
+end
+
+function UIExplosiveNumpad:OnButton_4_clicked()
+	self:AddNumber(4)
+end
+
+function UIExplosiveNumpad:OnButton_5_clicked()
+	self:AddNumber(5)
+end
+
+function UIExplosiveNumpad:OnButton_6_clicked()
+	self:AddNumber(6)
+end
+
+function UIExplosiveNumpad:OnButton_7_clicked()
+	self:AddNumber(7)
+end
+
+function UIExplosiveNumpad:OnButton_8_clicked()
+	self:AddNumber(8)
+end
+
+function UIExplosiveNumpad:OnButton_9_clicked()
+	self:AddNumber(9)
+end
+
+function UIExplosiveNumpad:OnButton_OK_clicked()
+	local text = self.st:TextControl():GetText()
+	local data = hf_obj_manager.get_data(self.explosive_id)
+	set_debug_level("all")
+	pr("full code: %s", text)
+	if self:ValidCode(text) then
+		set_debug_level("dev")
+		local code_part = tonumber(text:sub(1,3))
+		local mode_part = 2
+
+		if text:len() > 3 then
+			set_debug_level("all")
+			pr("Check if first digit in code contains 0")
+			local first_digit = tonumber(text:sub(1,1))
+			pr("first digit: %s", first_digit)
+			if first_digit == 0 then
+				code_part = tonumber(text:sub(2, 3))
+			else
+				code_part = tonumber(text:sub(1, 3))
+			end
+			mode_part = tonumber(text:sub(#text, #text))
+		end
+
+		pr("code part: %s", code_part)
+		pr("mode part: %s", mode_part)
+		pr("Data vals: %s, %s, %s", data["armed"], data["code"], data["mode"])
+		set_debug_level("player")
+        if data["armed"] and data["code"] and code_part == data["code"] then
+			pr("disarming explosives")
+            data["armed"] = false
+			snd_disarmed:play(db.actor, 0, sound_object.s2d)
+			
+        elseif not data["armed"] and self:ValidMode(mode_part)  then
+			pr("arming explosives")
+			data["armed"] = true
+			data["code"] = code_part
+			data["mode"] = mode_part
+			snd_armed:play(db.actor, 0, sound_object.s2d)
+		else
+			snd_incorrect:play(db.actor, 0, sound_object.s2d)
+			return
+        end
+        hf_obj_manager.update_data(self.explosive_id, data)
+	else
+		snd_incorrect:play(db.actor, 0, sound_object.s2d)
+    end
+end
+
+function UIExplosiveNumpad:ValidCode(code)
+	set_debug_level("all")
+	if not code then
+		pr("code not present")
+		return false
+	end
+
+	local code_len = code:len()
+	if not (code_len >= 3) then
+		pr("code part is less than 3")
+		return false
+	end
+
+	local code_part = tonumber(code)
+	if code_len > 3 then
+		local first_digit = tonumber(code:sub(1,1))
+		if first_digit == 0 then
+			code_part = tonumber(code:sub(2, 3))
+		else
+			code_part = tonumber(code:sub(1, 3))
+		end
+	end
+	if code_part < FREQ_MIN or code_part > FREQ_MAX then -- item_radio.is_in_range(code_part)
+		pr("code part outside of freq range")
+		return false
+	end
+
+	return true
+end
+
+function UIExplosiveNumpad:ValidMode(mode)
+	set_debug_level("all")
+	if not mode then
+		pr("mode is not present")
+		return false
+	end
+
+	if mode < 0 then
+		pr("mode is invalid val")
+		return false
+	end
+
+	if not contains(DETONATE_MODES, mode) then
+		pr("mode not found in det modes")
+		return false
+	end
+
+	return true
+end
+
+function UIExplosiveNumpad:OnKeyboard(dik, keyboard_action)  --virtual function
+	CUIScriptWnd.OnKeyboard(self,dik,keyboard_action)
+
+	if keyboard_action == ui_events.WINDOW_KEY_PRESSED then
+		if dik == DIK_keys.DIK_ESCAPE then
+			self:Close()
+		end
+
+		if dik == DIK_keys.DIK_0 or dik == DIK_keys.DIK_NUMPAD0 then
+			self:AddNumber(0)
+		elseif dik == DIK_keys.DIK_1 or dik == DIK_keys.DIK_NUMPAD1 then
+			self:AddNumber(1)
+		elseif dik == DIK_keys.DIK_2 or dik == DIK_keys.DIK_NUMPAD2 then
+			self:AddNumber(2)
+		elseif dik == DIK_keys.DIK_3 or dik == DIK_keys.DIK_NUMPAD3 then
+			self:AddNumber(3)
+		elseif dik == DIK_keys.DIK_4 or dik == DIK_keys.DIK_NUMPAD4 then
+			self:AddNumber(4)
+		elseif dik == DIK_keys.DIK_5 or dik == DIK_keys.DIK_NUMPAD5 then
+			self:AddNumber(5)
+		elseif dik == DIK_keys.DIK_6 or dik == DIK_keys.DIK_NUMPAD6 then
+			self:AddNumber(6)
+		elseif dik == DIK_keys.DIK_7 or dik == DIK_keys.DIK_NUMPAD7 then
+			self:AddNumber(7)
+		elseif dik == DIK_keys.DIK_8 or dik == DIK_keys.DIK_NUMPAD8 then
+			self:AddNumber(8)
+		elseif dik == DIK_keys.DIK_9 or dik == DIK_keys.DIK_NUMPAD9 then
+			self:AddNumber(9)
+		elseif dik == DIK_keys.DIK_BACK then
+			self:OnButton_backspace_clicked()
+		elseif dik == DIK_keys.DIK_RETURN or dik == DIK_keys.DIK_NUMPADENTER then
+			self:OnButton_OK_clicked()
+		elseif dik == DIK_keys.DIK_DELETE or dik == DIK_keys.DIK_NUMPADCOMMA then
+			self:OnButton_c_clicked()
+		end
+	end
+
+	return true
+end
+
+function UIExplosiveNumpad:Close()
+	self:HideDialog()
+	self.st:TextControl():SetText("")
+	Unregister_UI("UIExplosiveNumpad")
+end

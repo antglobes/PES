@@ -1,0 +1,51 @@
+contains = ag_tables.contains
+get_config = pes_mcm.get_config
+
+DBG_LVL = "player"
+
+function is_placeable_explosive(sect)
+    return ini_sys:r_string_ex(sect, "placeable_type") == "explosive"
+end
+
+function is_holding_radio()
+    local detector = db.actor:active_detector()
+    --printf("holding radio: %s", detector and detector:section())
+    return detector and detector:section() == "detector_radio"
+end
+
+-- Tables
+
+DETONATE_MODES = {
+	["prox"] = 0,
+	["timed"] = 1,
+	["remote"] = 2,
+	["pocket"] = 3,
+}
+
+-- MCM
+function set_debug_level(new_dbg_level)
+	DBG_LVL = new_dbg_level
+end
+
+function mcm_debug_level()
+	return DBG_LVL or "player"
+end
+
+function filter_debug_msg(debug_level)
+	local mcm_dbg_lvl = mcm_debug_level()
+	local accepted_debug_msgs = {
+		["player"] = {"player"},
+		["dev"]    = {"player", "dev"},
+		["all"]    = {"player", "dev", "all"}
+	}
+	return contains(accepted_debug_msgs[mcm_dbg_lvl], debug_level)
+end
+
+function dbg_pr(header, str, ...)
+    if not filter_debug_msg(DBG_LVL) then return end
+    ag_logging.dbg_pr(header, str, ...)
+end
+
+function on_option_change(options)
+    DBG_LVL = options["debug_level"]
+end

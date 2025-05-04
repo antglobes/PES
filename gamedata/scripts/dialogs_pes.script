@@ -1,0 +1,230 @@
+-- Imports
+get_faction_goodwill = ag_game_objects.get_faction_goodwill
+get_personal_goodwill = ag_game_objects.get_personal_goodwill
+determine_goodwill_amount = ag_game_objects.determine_goodwill_amount
+decrease_faction_goodwill = ag_game_objects.decrease_faction_goodwill
+decrease_personal_goodwill = ag_game_objects.decrease_personal_goodwill
+find_inv_item = ag_game_objects.find_inv_item
+gts = ag_strings.get_translation
+contains = ag_tables.contains
+table_extend = ag_tables.table_extend
+
+-- Constants
+DIALOG_PREFIX = "st_pes_dialog_%s"
+
+-- Tables
+FACTION_MEMBER = {
+    ["stalker"]   = "Loner",
+    ["bandit"]    = "Bandit",
+    ["csky"]      = "Swamp fucker",
+    ["army"]      = "Soldier",
+    ["freedom"]   = "Freedomer",
+    ["dolg"]      = "Dutyer",
+    ["ecolog"]    = "Scientist",
+    ["killer"]    = "Merc",
+    ["monolith"]  = "Psycho",
+    ["renegade"]  = "Renegade",
+    ["greh"]      = "Sinner",
+    ["isg"]       = "Agent",
+    ["zombied"]   = "Zombie",
+    ["trader"]    = "Trader",
+}
+STALKER_GREETINGS = {
+    [1] = "friend",
+    [2] = "buddy",
+    [3] = "mate"
+}
+
+
+function give_explosives_cond(actor, npc, dialog_id)
+    printf("give explosvies cond")
+    local talking_npc = actor:get_talking_npc()
+    if not npc or not talking_npc or talking_npc:id() ~= npc:id() then
+        printf("no talking npc found")
+        return false
+    end
+
+    if has_alife_info("give_explosives_accepted_" .. npc:id()) then
+        printf("already given explosives")
+        return false
+    end
+
+    if contains(placeable_explosive.rigged_npcs, npc:id(), true) then
+        printf("npc is already rigged")
+        return false
+    end
+
+    local explosives = find_inv_item("ied")
+    if not explosives or is_empty(explosives) then
+        printf("no explosives")
+        return false
+    end
+    
+    local has_armed_explosive = false
+    for idx, obj in pairs(explosives) do
+        if placeable_explosive.has_explosive_info(obj:id()) then
+            local info = placeable_explosive.explosive_info[obj:id()]
+            if info["armed"] then
+                has_armed_explosive = true
+            end
+        end
+    end
+    if not has_armed_explosive then
+        printf("no explosives are armed")
+        return false
+    end
+
+    return true
+end
+
+function give_explosives_start()
+    printf("give explo start")
+    local npc = db.actor:get_talking_npc()
+    if not npc then return end
+
+    local name = npc:character_name()
+    local speaker_name = "stalker"
+    local faction = npc:character_community()
+
+    local goodwill = get_faction_goodwill(npc, db.actor)
+    local polarity, amount = determine_goodwill_amount(goodwill)
+    if polarity then 
+        if amount ~= "high" then
+            printf("npc is unknown and not high goodwill")
+            speaker_name = FACTION_MEMBER[faction]
+        else
+            printf("npc is unknown and high goodwill")
+            speaker_name = STALKER_GREETINGS[math.random(1, #STALKER_GREETINGS)]
+        end        
+    end
+
+    if contains(_G, factionID_hud_mcm, true) then
+        if contains(factionID_hud_mcm.idtable, name, true) then
+            printf("npc is known")
+            speaker_name = name        
+        end
+    end
+
+    local rnd = math.random(1, 3)
+    return gts(strformat(DIALOG_PREFIX, "give_explosives_start_" .. rnd), speaker_name)
+end
+
+function give_explosives_reply()
+    printf("give explo reply")
+    local rnd = math.random(1, 3)
+    return gts(strformat(DIALOG_PREFIX, "give_explosives_reply_" .. rnd))
+end
+
+function give_explosives_explain_truth()
+    printf("give explo truth")
+    local rnd = math.random(1, 3)
+    local text = "An Explosive"
+    if rnd == 2 then
+        local explosives = find_inv_item("ied")
+        
+        for idx, obj in pairs(explosives) do
+            local info = placeable_explosive.explosive_info[obj:id()]
+            if info["armed"] then
+                local sect = obj:section()
+                local placeable_sect = ini_sys:r_string_ex(sect, "placeable_section")
+                local explo_type = placeable_explosive.EXPLOSIVE_TYPE[placeable_sect]
+                if info["mode"] == 2 then
+                    text = gts("st_plant_explosive_remote_map_marker_pt1", explo_type)
+
+                elseif info["mode"] == 3 then
+                    text = gts("st_plant_explosive_pocket_map_marker", explo_type)                    
+                end
+            end
+        end
+
+        return gts(strformat(DIALOG_PREFIX, "explain_explosives_truth_" .. rnd), text)
+    else
+        return gts(strformat(DIALOG_PREFIX, "explain_explosives_truth_" .. rnd))
+    end
+end
+
+function give_explosives_explain_lie()
+    printf("give explo lie")
+    local rnd = math.random(1, 3)
+    return gts(strformat(DIALOG_PREFIX, "explain_explosives_lie_" .. rnd))
+end
+
+function give_explosives_explain_reply()
+    printf("give explo reply")
+    local npc = db.actor:get_talking_npc()
+    local gw_fac = get_faction_goodwill(npc, db.actor)
+    local gw_npc = get_personal_goodwill(npc, db.actor)
+    local pol_fac, amt_fac = determine_goodwill_amount(gw_fac)
+    local pol_npc, amt_npc = determine_goodwill_amount(gw_npc)
+    local sentiment = "refusal"
+    
+    if has_alife_info("give_explosives_truth") then
+        if not (pol_npc or pol_fac) then
+            sentiment = "refusal"
+            give_info("decrease_faction_goodwill")
+
+        elseif pol_npc and amt_npc == "high" then
+            sentiment = "acceptance"
+            give_info("decrease_personal_goodwill")
+
+        elseif pol_fac and amt_fac ~= "neutral"  then
+            sentiment = "reluctant_acceptance"
+            give_info("decrease_faction_goodwill")
+        end
+        disable_info("give_explosives_truth")
+        
+    elseif has_alife_info("give_explosives_lie") then
+        if not (pol_npc or pol_fac) then
+            sentiment = "refusal_angered"
+            give_info("decrease_faction_goodwill")
+
+        elseif pol_npc and amt_npc == "high" then
+            sentiment = "refusal"
+            give_info("decrease_personal_goodwill")
+
+        elseif pol_fac and amt_fac ~= "neutral"  then
+            sentiment = "reluctant_acceptance"
+            give_info("decrease_faction_goodwill")
+        end        
+        disable_info("give_explosives_lie")
+
+    end
+
+    if is_not_empty({sentiment:find("acceptance")}) then
+        give_info("give_explosives_accepted_"..npc:id())
+
+    elseif is_not_empty({sentiment:find("refusal")}) then
+
+    end
+    printf("sentiment: %s", sentiment)
+    local rnd = math.random(1, 3)
+    return gts(strformat(DIALOG_PREFIX, strformat("explain_explosives_reply_%s_%s", sentiment, rnd)))
+end
+
+function give_explosives_action()
+    printf("give explo action")
+    local npc = db.actor:get_talking_npc()
+    if has_alife_info("give_explosives_accepted_"..npc:id()) then
+        local explosives = find_inv_item("ied")
+
+        for idx, obj in pairs(explosives) do
+            local info = placeable_explosive.explosive_info[obj:id()]
+            if info["armed"] then
+                printf("giving npc explosives")
+                local delay = info["mode"] == 3 and 30 or 0
+                placeable_explosive.attach_bomb_to_npc(obj, npc, delay, 0)
+                placeable_explosive.add_explo_mapspot(obj, npc)
+                alife_release_id(obj:id())
+                disable_info("give_explosives_accepted_"..npc:id())
+            end
+        end
+
+    elseif has_alife_info("decrease_faction_goodwill") then
+        decrease_faction_goodwill(npc:character_community(), 200)
+        disable_info("decrease_faction_goodwill")
+
+    elseif has_alife_info("decrease_personal_goodwill") then
+        decrease_personal_goodwill(200, npc, db.actor)
+        disable_info("decrease_personal_goodwill")
+    end
+end

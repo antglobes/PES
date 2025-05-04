@@ -1,0 +1,1058 @@
+-- Imports
+override_functor = custom_functor_autoinject.override_functor
+add_functor = custom_functor_autoinject.add_functor
+contains = ag_tables.contains
+get_unknown_object = ag_game_objects.get_unknown_object
+dist_to_pos = ag_game_objects.dist_to_pos
+gts = ag_strings.get_translation
+decapitalise = ag_strings.decapitalise
+print_table = ag_tables.print_table
+vector_rotate_x = ag_math.vector_rotate_x
+
+-- Utils
+is_placeable_explosive = pes_utils.is_placeable_explosive
+is_holding_radio = pes_utils.is_holding_radio
+DETONATE_MODES = pes_utils.DETONATE_MODES
+set_debug_level =  pes_utils.set_debug_level
+filter_debug_msg = pes_utils.filter_debug_msg
+
+-- Monkey Patch Bases
+-- base_radio_update = item_radio.UI3D_RF.Update
+base_manage_timer_explosives = txr_mines.manage_timer_explosives
+base_actor_on_update = txr_mines.actor_on_update
+
+-- Constants
+TRIGGER_KEY                  = DIK_keys.DIK_V
+MIN_FORGET_TIME 	         = 60*10
+MAX_FORGET_TIME 	         = 60*30
+FUSE_TIME 		             = 5
+ALLOW_MAP_MARKERS            = true
+TRIGGER_RADIUS               = 2.5
+POCKET_PLANT_DIST            = 3
+DEFAULT_TARGET               = "someone's"
+TRIGGER_DIST                 = 100
+TIMED_EXPLOSIVE_DELAY        = 10
+PROXIMITY_EXPLOSIVE_DELAY    = 5
+
+-- Sounds
+snd_triggered = sound_object("detectors\\detector_radio_explosive_triggered")
+
+-- Variables
+explosive_info = {}
+rigged_npcs = {}
+local time_triggered = 0
+local explosive_triggered = false
+local dbg_lvl = "player"
+
+-- Tables
+POCKET_TIMED_EXPLOSIVE_DELAY = {
+    short = 10,
+    long  = 30
+}
+FX_BY_SECTION = {
+    mine_new_blow = 'mine',
+    rpg_new_blow  = 'ied_rpg',
+    ied_new_blow  = 'ied',
+}
+EXPLOSIVE_TYPE = {
+    mine_new_blow = gts("st_plant_explosive_remote_mine_new"),
+	rpg_new_blow  = gts("st_plant_explosive_remote_ied_rpg_new"),
+    ied_new_blow  = gts("st_plant_explosive_remote_ied_new"),
+}
+FACTION_TEXT = {
+	["stalker"]   = gts("st_rigged_community_stalker"),
+	["bandit"]    = gts("st_rigged_community_bandit"),
+	["csky"]      = gts("st_rigged_community_csky"),
+	["army"]      = gts("st_rigged_community_army"),
+	["freedom"]   = gts("st_rigged_community_freedom"),
+	["dolg"]      = gts("st_rigged_community_dolg"),
+	["ecolog"]    = gts("st_rigged_community_ecolog"),
+	["killer"]    = gts("st_rigged_community_killer"),
+	["monolith"]  = gts("st_rigged_community_monolith"),
+	["renegade"]  = gts("st_rigged_community_renegade"),
+	["greh"]      = gts("st_rigged_community_greh"),
+	["isg"]       = gts("st_rigged_community_isg"),
+	["zombied"]   = gts("st_rigged_community_zombied"),
+	["none"]      = gts("st_rigged_community_unknown"),
+	["target"]    = gts("st_rigged_community_unknown"),
+}
+FACTION_ICONS = {
+	["stalker"] = "circle_stalker",
+	["bandit"] = "circle_bandit",
+	["csky"] = "circle_csky",
+	["army"] = "circle_army",
+	["freedom"] = "circle_freedom",
+	["dolg"] = "circle_dolg",
+	["ecolog"] = "circle_ecolog",
+	["killer"] = "circle_killer",
+	["monolith"] = "circle_monolith",
+	["renegade"] = "circle_renegade",
+	["greh"] = "circle_greh",
+	["isg"] = "circle_isg",
+	["zombied"] = "circle_zombied",
+	["none"] = "circle_empty",
+	["target"] = "circle_target",
+}
+
+-- Debugging
+function pr(str, ...)
+    if not filter_debug_msg(dbg_lvl) then return end
+    pes_utils.dbg_pr("PES|Main: %s", str, ...)
+end
+
+-- Binder
+function init(obj)
+    obj:bind_object(placeable_explosive_wrapper(obj).binder)
+end
+
+class "placeable_explosive_wrapper" (bind_hf_base.hf_binder_wrapper)
+function placeable_explosive_wrapper:__init(obj) super(obj)
+    local data = hf_obj_manager.get_data(self.object:id())
+    local tbl_id = data["tbl_id"]
+    local info = explosive_info[tbl_id]
+
+    self.armed        = info and info["armed"] or false
+    self.code         = info and info["code"] or -1
+    self.mode         = info and info["mode"] or -1
+    self.item_section = info and info["item_section"] or ini_sys:r_string_ex(self.object:section(), "item_section")
+    self.registered   = info and info["registered"] or false
+    self.has_mapspot  = info and info["has_mapspot"]
+
+    if tbl_id then
+        replace_explosive_info(tbl_id, self.object:id())
+        data["tbl_id"] = self.object:id()
+        hf_obj_manager.update_data(self.object:id(), data)
+    end
+
+    self:save_data()
+end
+
+function placeable_explosive_wrapper:update(delta)
+    bind_hf_base.hf_binder_wrapper.update(self, delta)
+
+    self.tg = time_global()
+    self:load_data()
+
+    -- Init Armed Explosive
+    if self.armed and not self.registered then
+        local delay = self.mode == 0 and PROXIMITY_EXPLOSIVE_DELAY or self.mode == 1 and TIMED_EXPLOSIVE_DELAY or 0
+        self:RegisterExplosive(delay)
+
+    -- Disarm Explosive
+    elseif not self.armed and self.registered then
+        self:UnRegisterExplosive()
+    end   
+    
+end
+
+function placeable_explosive_wrapper:pickup()
+    set_debug_level("dev")
+    self:load_data()
+    if self.armed and not contains({2, 3}, self.mode) then
+        actor_menu.set_msg(1, gts("st_explosive_armed", self.object:section()), 4)
+        return
+    end
+    pr("picking explosive")
+    -- Register alife object
+    local se_obj = alife_create(self.item_section, db.actor:position(), db.actor:level_vertex_id(), db.actor:game_vertex_id(), AC_ID, false)
+    alife():register(se_obj)
+
+    local data = hf_obj_manager.get_data(self.object:id())
+
+    -- Replace gen id
+    pr("setting data")
+    replace_explosive_info(data["tbl_id"], se_obj.id)
+    data["tbl_id"] = se_obj.id
+    hf_obj_manager.update_data(se_obj.id, data)
+    
+    self:RemoveExplosiveInfo()
+    -- Clean up HF-related data
+    pr("cleaning up data")
+    hf_obj_manager.cleanup_data(self.object:id())
+	alife_release(self.object)
+    return true
+end
+
+function placeable_explosive_wrapper:AddExplosiveInfo(delay)
+    set_debug_level("dev")
+    if ALLOW_MAP_MARKERS and not self.has_mapspot then
+        pr("adding explo info")
+        local id = self.object:id()
+        local map_spot = FX_BY_SECTION[self.object:section()] 
+        local explo_type_str = EXPLOSIVE_TYPE[self.object:section()]
+
+        if self.mode == 2 then
+            map_spot = map_spot .. "_remote"
+            local text = strformat("%s, %s MHz", gts("st_plant_explosive_remote_map_marker_pt1", explo_type_str), gts("st_plant_explosive_remote_map_marker", self.code))
+            level.map_add_object_spot_ser(id, map_spot, text)
+            actor_menu.set_msg(1, strformat("%s %s MHz", gts("st_plant_explosive_remote_freq"), self.code), 4)
+
+        elseif self.mode == 0 then
+            map_spot = map_spot .. "_prox"
+            level.map_add_object_spot_ser(id, map_spot, gts("st_plant_explosive_proximity_map_marker", explo_type_str))
+            actor_menu.set_msg(1, gts("st_explosive_planted_proximity",  self.code), 4)
+
+        elseif self.mode == 1 then
+            map_spot = map_spot .. "_timer"
+            level.map_add_object_spot_ser(id, map_spot, gts("st_plant_explosive_timed_map_marker", explo_type_str))
+            actor_menu.set_msg(1, gts("st_explosive_planted_timer", delay,  self.code), 4)
+
+        elseif self.mode == 3 then
+            map_spot = map_spot .. "_pocket"
+            level.map_add_object_spot_ser(id, map_spot, gts("st_plant_explosive_pocket_map_marker", explo_type_str))
+            actor_menu.set_msg(1, gts("st_explosive_planted_pocket", self.code) , 4)
+        end
+        self.has_mapspot = true
+    end
+end
+
+function placeable_explosive_wrapper:RemoveExplosiveInfo()
+    set_debug_level("dev")
+    if ALLOW_MAP_MARKERS and self.has_mapspot then
+       pr("removing explo info")
+       local id = self.object:id() 
+       local map_spot = FX_BY_SECTION[self.object:section()]
+       local explo_str = EXPLOSIVE_TYPE[self.object:section()]
+
+       if self.mode == 2 then
+            map_spot = map_spot .. "_remote"
+            explo_str = gts("st_plant_explosive_remote_map_marker_pt1", explo_str)
+        
+       elseif self.mode == 0 then
+            map_spot = map_spot .. "_prox"
+            explo_str = gts("st_plant_explosive_proximity_map_marker", explo_str)
+            
+       elseif self.mode == 1 then
+            map_spot = map_spot .. "_timer"
+            explo_str = gts("st_plant_explosive_timed_map_marker", explo_str)
+
+        elseif self.mode == 3 then
+            map_spot = map_spot .. "_pocket"
+            explo_str = gts("st_plant_explosive_pocket_map_marker", explo_str)
+       end
+
+       if level.map_has_object_spot(id, map_spot) then
+            level.map_remove_object_spot(id, map_spot)
+            self.has_mapspot = false
+       end
+       actor_menu.set_msg(1, gts("st_explosive_disarmed", explo_str), 4)
+    end
+end
+
+function placeable_explosive_wrapper:RegisterExplosive(delay)
+    if contains({0, 1, 2}, self.mode) then
+        set_debug_level("dev")
+        txr_mines._mines[self.object:id()] = {
+            exp_time = now() + (delay or FUSE_TIME) * level.get_time_factor(),
+            mode = self.mode,
+            witnesses = self:GetWitnesses(),
+            active = true,
+            mine_type = self.item_section,
+            mine_freq = self.code
+        }
+        actor_effects.play_item_fx(FX_BY_SECTION[self.object:section()])
+        pr("registering explosive: %s", print_table(txr_mines._mines[self.object:id()]))
+    else
+        pr("registering pocket explosive")
+    end
+    
+    self:AddExplosiveInfo(delay)
+    self.registered = true
+    self:save_data()
+end
+
+function placeable_explosive_wrapper:UnRegisterExplosive()
+    pr("attempeting unregister")
+    if contains(txr_mines._mines, self.object:id(), true) then
+        set_debug_level("dev")
+        txr_mines._mines[self.object:id()] = nil
+        pr("unregistering explosive")
+    end
+
+    self:RemoveExplosiveInfo()
+    self.registered = false
+    self:save_data()
+end
+
+function placeable_explosive_wrapper:Detonate()
+    set_debug_level("dev")
+    if dist_to_pos(db.actor, self.object:position()) > TRIGGER_DIST then
+        pr("explosive not within trigger dist")
+        return 
+    end
+    txr_mines.trigger_mine(self.object:id())
+    explosive_triggered = true
+    time_triggered = time_global()
+    snd_triggered:play(db.actor, 0, sound_object.s2d)
+    hf_obj_manager.cleanup_data(self.object:id())
+	alife_release(self.object)
+    pr("detonating explosive")
+end
+
+
+-- Binder Helpers
+
+function get_witnesses()
+    set_debug_level("all")
+    local witnesses = {}
+    for i in pairs(db.OnlineStalkers) do
+		local id = db.OnlineStalkers[i]
+		local npc = level.object_by_id(id)
+		if npc and IsStalker(npc) and npc:alive() then
+			if npc:see(db.actor) then
+				witnesses[id] = now() + math.random(MIN_FORGET_TIME, MAX_FORGET_TIME) * level.get_time_factor()
+			end
+		end
+	end
+    pr("getting witnesses")
+    return witnesses
+end
+
+function placeable_explosive_wrapper:GetWitnesses()
+    return get_witnesses()
+end
+
+-- Binder Data
+function placeable_explosive_wrapper:save_data()
+    local data = {
+        armed = self.armed,
+        code = self.code,
+        mode = self.mode,
+        item_section = self.item_section,
+        registered = self.registered,
+        has_mapspot = self.has_mapspot,
+    }
+
+    local info = hf_obj_manager.get_data(self.object:id())
+    if info and contains(info, "tbl_id", true) then
+        update_explosive_info(info["tbl_id"], data)
+    end
+
+    hf_obj_manager.update_data(self.object:id(), data)
+end
+
+function placeable_explosive_wrapper:load_data()
+    local data = hf_obj_manager.get_data(self.object:id())
+    self.armed        = data["armed"]
+    self.code         = data["code"]
+    self.mode         = data["mode"]
+    self.item_section = data["item_section"]
+    self.registered   = data["registered"]
+    self.has_mapspot  = data["has_mapspot"]
+end
+
+-- UI
+function start_ui(obj_id)
+    ui_placeable_explosive.start_ui(obj_id)
+end
+
+-- Tracking
+function has_explosive_info(id)
+    return contains(explosive_info, id, true)
+end
+
+function init_explosive_info(id)
+    if has_explosive_info(id) then return end
+    set_debug_level("all")
+    pr("init explosive info: %s", id)
+    local data = {tbl_id=id}
+    explosive_info[id] = data
+    hf_obj_manager.set_data(id, data)
+end
+
+function update_explosive_info(id, new_data)
+    if not has_explosive_info(id) then return end
+    if is_empty(new_data) then return end
+    set_debug_level("all")
+    
+    local data = explosive_info[id]
+    for k, v in pairs(new_data) do
+        data[k] = v
+    end
+    explosive_info[id] = data
+    pr("update explosive info: %s %s", id, print_table(data))
+end
+
+function replace_explosive_info(old_id, new_id)
+    if not has_explosive_info(old_id) then return end
+    if has_explosive_info(new_id) then return end
+    set_debug_level("all")
+    pr("replace explosive info from old id %s to new id %s", old_id, new_id)
+    local data = explosive_info[old_id]
+    explosive_info[new_id] = data
+    remove_explosive_info(old_id)
+    hf_obj_manager.delete_data(old_id)
+end
+
+function remove_explosive_info(id)
+    if not has_explosive_info(id) then return end
+    set_debug_level("dev")
+    pr("removing explosive info: %s", id)
+    explosive_info[id] = nil
+end
+
+
+-- Monkey Patches
+function item_radio.UI3D_RF.Update(self)
+    CUIScriptWnd.Update(self)
+	
+	local tg = time_global()
+	
+	-- LED flashing
+	if (tg > item_radio.tg_led + 1000) and not explosive_triggered then
+		tg_led = tg
+		self.m_led:Show(not self.m_led:IsShown())
+	elseif (tg > item_radio.tg_led + 50) and explosive_triggered then
+		item_radio.tg_led = tg
+		self.m_led:Show(not self.m_led:IsShown())
+	end
+	
+	-- Emissions
+	if GetEvent("surge", "state") or GetEvent("psi_storm", "state") then
+		if (tg > item_radio.tg_emission + 200) then
+			item_radio.tg_emission = tg
+			
+			self.m_led:Show((math.random(1,100) < 50) and true or false)
+			item_radio._freq = math.random(item_radio._min, item_radio._max)
+		else
+			return
+		end
+		
+	-- Normal readings
+	else
+		if self.freq == item_radio._freq then
+			return
+		end
+		self.freq = item_radio._freq
+	end
+
+	local s_freq = tostring(item_radio._freq)
+	local seg1, seg2, seg3
+	
+	if (item_radio._freq > 99) then
+		seg1 = strformat("green_%s", s_freq:sub(1, 1))
+		seg2 = strformat("green_%s", s_freq:sub(2, 2))
+		seg3 = strformat("green_%s", s_freq:sub(3, 3))
+	elseif (item_radio._freq > 9) then
+		seg1 = "green_0"
+		seg2 = strformat("green_%s", s_freq:sub(1, 1))
+		seg3 = strformat("green_%s", s_freq:sub(2, 2))
+	elseif (item_radio._freq > 0) then
+		seg1 = "green_0"
+		seg2 = "green_0"
+		seg3 = strformat("green_%s", s_freq:sub(1, 1))
+	else
+		seg1 = "green_0"
+		seg2 = "green_0"
+		seg3 = "green_0"
+	end
+	
+	self.m_seg1:InitTextureEx(seg1, "hud\\p3d")
+	self.m_seg2:InitTextureEx(seg2, "hud\\p3d")
+	self.m_seg3:InitTextureEx(seg3, "hud\\p3d")
+end
+
+function txr_mines.generic_on_update(npc)
+    local npc_pos = npc:position()
+    local actor_pos = db.actor:position()
+
+    if explosive_triggered then radio_beep(500) end
+    if not npc:alive() then return end
+    if is_empty(txr_mines._mines) then return end
+    for mine_id, data in pairs(txr_mines._mines) do
+        local tbl_id = hf_obj_manager.get_data(mine_id).tbl_id
+        if has_explosive_info(tbl_id) then
+            local mine = get_unknown_object({id=mine_id}, "game")
+            if 
+                mine
+                and data.active
+                and now() >= data.exp_time
+                and dist_to_pos(mine, npc_pos) <= TRIGGER_RADIUS
+                and data.mode == DETONATE_MODES["prox"] 
+            then
+                if not (npc:id() == AC_ID and IsMoveState('mcCrouch')) then
+                    txr_mines.trigger_mine(mine_id)
+                end
+            end
+        end
+    end
+end
+
+function txr_mines.manage_timer_explosives()
+    base_manage_timer_explosives()
+    for npc_id, data in pairs(rigged_npcs) do
+        local npc = get_unknown_object({id=npc_id}, "game")
+        if 
+            npc
+            and IsStalker(npc)
+            and data.mode == DETONATE_MODES["pocket"]
+            and now() >= data.mine_timer
+        then
+            trigger_npc_mine(npc, data)
+        end
+    end
+end
+
+function txr_mines.actor_on_update()
+    base_actor_on_update()
+    check_rigged_npcs()
+end
+
+-- Helpers
+
+function override_func_base(obj)
+    return true
+end
+
+function pes_name_cond(obj)
+    local p = obj:parent()
+    if not (p and p:id() == AC_ID) then return end
+    local sect = obj:section()
+    return is_placeable_explosive(sect) 
+end
+
+function pip_remote_name_cond(obj)
+    set_debug_level("all")
+    if pes_name_cond(obj) and has_explosive_info(obj:id()) then
+        pr("pip remote cond")
+        local info = explosive_info[obj:id()]
+        return info["mode"] == 2 and info["armed"]
+    end
+    return false
+end
+
+function pip_timed_name_cond(obj)
+    set_debug_level("all")
+    if pes_name_cond(obj) and has_explosive_info(obj:id()) then
+        pr("pip timed cond")
+        local info = explosive_info[obj:id()]
+        return info["mode"] == 3 and info["armed"]
+    end
+    return false
+end
+
+function add_pip_func()
+    set_debug_level("all")
+    pr("attempeting adding pip funcs")
+    add_functor(
+        "pes_pocket_remote",
+        pip_remote_name_cond,
+        function(obj) 
+            local target = DEFAULT_TARGET
+            local targ_obj = level.get_target_obj()
+            if targ_obj and IsStalker(targ_obj) then
+                target = strformat("%s's", targ_obj:character_name())
+            end
+            return gts("st_plant_explosive_remote_pocket", target)  
+        end,
+        nil,
+        function(obj) return plant_bomb_in_pocket(obj) end
+    )
+    add_functor(
+        "pes_pocket_timed_short",
+        pip_timed_name_cond,
+        function(obj) 
+            local target = DEFAULT_TARGET
+            local targ_obj = level.get_target_obj()
+            if targ_obj and IsStalker(targ_obj) then
+                target = strformat("%s's", targ_obj:character_name())
+            end
+            return gts("st_plant_explosive_pocket_timed", target, POCKET_TIMED_EXPLOSIVE_DELAY["short"]) 
+        end,
+        nil,
+        function (obj) return plant_bomb_in_pocket(obj, POCKET_TIMED_EXPLOSIVE_DELAY["short"]) end
+    )
+    add_functor(
+        "pes_pocket_timed_long",
+        pip_timed_name_cond,
+        function(obj) 
+            local target = DEFAULT_TARGET
+            local targ_obj = level.get_target_obj()
+            if targ_obj and IsStalker(targ_obj) then
+                target = strformat("%s's", targ_obj:character_name())
+            end
+            return gts("st_plant_explosive_pocket_timed", target, POCKET_TIMED_EXPLOSIVE_DELAY["long"]) 
+        end,
+        nil,
+        function (obj) return plant_bomb_in_pocket(obj, POCKET_TIMED_EXPLOSIVE_DELAY["long"]) end
+    )
+end
+
+function add_stacking_rules()
+    set_debug_level("all")
+    pr("adding stacking rules")
+    rax_stacking_control.register(
+        function(sect)
+            return is_placeable_explosive(sect)
+        end,
+        function(obj)
+            local id = obj:id()
+            if has_explosive_info(id) then
+                local info = explosive_info[id]
+                if info["armed"] then
+                    return false
+                end
+            end
+            return true
+        end
+    )
+end
+
+function setup_explosive(obj)
+    pr("setting up explosive")
+    -- Disable Vanilla Ui Functors
+    for _, slot in pairs({1, 2, 3}) do
+        pr("overrding functor in slot: %s", slot)
+        override_functor(
+            slot, 
+            pes_name_cond,
+            override_func_base, 
+            nil, 
+            override_func_base
+        )
+    end
+    -- Script Version of assigning hf place to explosive item
+    add_functor(
+        "pes_hf_place",
+        pes_name_cond,
+        placeable_furniture.place_item,
+        nil,
+        placeable_furniture.func_place_item
+    )
+    local id = obj:id()
+    init_explosive_info(id)
+    add_pip_func()
+    add_stacking_rules()
+end
+
+function now()
+	return game.get_game_time():diffSec(level.get_start_time())
+end
+
+function get_explosives_on_active_frequency()
+    local explosives = {}
+    for mine_id, data in pairs(txr_mines._mines) do
+        local data = hf_obj_manager.get_data(mine_id)
+        if data and contains(data, "tbl_id", true) then
+            local tbl_id = data["tbl_id"]
+            if has_explosive_info(tbl_id) then
+                --pr("mine: %s data: %s", mine_id, utils_data.print_table(data, nil, true))
+                local mine = get_unknown_object({id=mine_id}, "game")
+                if 
+                    mine
+                    and data.active
+                    and data.mode == DETONATE_MODES["remote"]
+                    and data.mine_freq == item_radio.get_freq()
+                then
+                    explosives[#explosives + 1] = mine_id
+                end
+            end
+        end
+    end
+    for npc_id, data in pairs(rigged_npcs) do
+        local npc = get_unknown_object({id=npc_id}, "game")
+        if 
+            npc 
+            and data.mode == DETONATE_MODES["remote"]
+            and data.mine_freq == item_radio.get_freq()
+        then
+            explosives[#explosives + 1] = npc_id
+        end
+    end
+    return explosives
+end
+
+function radio_beep(beep_time)
+    local tg = time_global()
+    if (tg > (time_triggered + beep_time)) then
+        explosive_triggered = false
+    end
+end
+
+function add_npc_panic(id, delay)
+    set_debug_level("all")
+    pr("adding panic to: %s", id)
+    demonized_stalker_aoe_panic.npc_add_aoe_panic(id, strformat("pes_panic_%s", id), delay)
+end
+
+function remove_npc_panic(id)
+    set_debug_level("all")
+    pr("removing panic to: %s", id)
+    demonized_stalker_aoe_panic.npc_remove_aoe_panic(id, strformat("pes_panic_%s", id))
+end
+
+function attach_bomb_to_npc(obj, npc, delay, detach_time)
+    set_debug_level("dev")
+    local info = explosive_info[obj:id()]
+    local mode = info["mode"]
+    local code = info["code"]
+    local npc_id = npc:id()
+    local faction = npc:character_community()
+    local name = npc:character_name()
+
+    rigged_npcs[npc:id()] = {
+        npc = npc,
+        faction = faction,
+        mode = mode,
+        mine_id = obj:id(),
+        mine_timer = now() + tonumber(delay) * level.get_time_factor(),
+        mine_freq = code,
+        triggered = false,
+        mine_type = obj:section(),
+        witnesses = get_witnesses(),
+        detach_time = detach_time,
+        detaching_time = 0
+    }
+    pr("Rigged npc data for %s: %s", npc:id(), print_table(rigged_npcs[npc:id()]))
+end
+
+function add_explo_mapspot(obj, npc)
+    set_debug_level("dev")
+    local info = explosive_info[obj:id()]
+    local mode = info["mode"]
+    local code = info["code"]
+
+    local sect = obj:section()
+    local faction = npc:character_community()
+    local name = npc:character_name()
+
+    local explo_str = EXPLOSIVE_TYPE[sect]
+    local map_spot = FACTION_ICONS[faction]
+    local faction_str = FACTION_TEXT[faction]
+
+
+    if mode == DETONATE_MODES["remote"] then
+        local text = strformat("%s %s %s %sMHz. \\n%s %s %s %s.", gts("st_plant_explosive_remote_map_marker_pt1"), explo_str, gts("st_plant_explosive_remote_map_marker"), code,
+            gts("st_plant_explosive_map_marker_attached_to"), name, gts("st_plant_explosive_map_marker_from"), faction_str)
+
+        level.map_add_object_spot_ser(npc:id(), map_spot, text)
+        actor_menu.set_msg(1, strformat("%s %s MHz", gts("st_plant_explosive_remote_freq"), code), 4)
+
+    elseif mode == DETONATE_MODES["pocket"] then
+        local text = strformat("%s %s.\\n%s %s %s %s.", gts("st_plant_explosive_pocket_map_marker"), explo_str,
+            gts("st_plant_explosive_map_marker_attached_to"), name, gts("st_plant_explosive_map_marker_from"))
+
+        level.map_add_object_spot_ser(npc:id(), map_spot, text)
+        actor_menu.set_msg(1, gts("st_plant_explosive_pocket_planted"), 4)
+    end
+    pr("adding mapsot to: %s", name)
+end
+
+function plant_bomb_in_pocket(obj, delay)
+    set_debug_level("dev")
+    local witnessed = false
+    local witnesses = {}
+    local targ_found = false
+    local detach_time = time_global() + (5 * 60000)
+    if not delay then delay = 0 end
+   
+    for i in pairs(db.OnlineStalkers) do
+        local id = db.OnlineStalkers[i]
+        local npc = get_unknown_object({id=id}, "game")
+
+        if npc and IsStalker(npc) and npc:alive() and npc:id() ~= AC_ID then
+                
+            local targ_obj = level.get_target_obj()
+            if npc and targ_obj and IsStalker(targ_obj) and npc:id() == targ_obj:id() then -- not npc:see(db.actor)
+
+                local dist = dist_to_pos(npc)
+                pr("Distance raw: %s", dist)
+
+                if dist <= POCKET_PLANT_DIST then
+                    targ_found = true
+
+                    -- If Sneaky snek
+                    if IsMoveState("mcCrouch") then
+                        pr("checking for witnesses")
+                        if is_not_empty( get_witnesses()) then -- (not flags or (flags and not flags.dialog))
+                            pr("witnesses found")
+                            actor_menu.set_msg(1, gts("st_plant_explosive_remote_pocket_cant_sneak_plant_while_being_seen"),4)
+                            hide_hud_inventory()
+                            return
+                        end
+                        pr("sneaky plant")
+                        detach_time = time_global() + (math.random(4, 7) * 60000)
+                    -- If Normal stand
+                    else
+                        pr("normal plant")
+                        local sender_header = strformat("%s, %s", npc:character_name(), gts("st_dyn_news_comm_" .. npc:character_community() .. "_" .. 6))
+                        if IsWounded(npc) then
+                            if npc:character_community() ~= "zombied" then
+                                pr("rigging wounded")
+                                local msg_wounded = gts("st_rigged_msg_wounded_".. tostring(math.random(4)))
+                                npc:force_set_goodwill(-5000, db.actor)
+                                dynamic_news_helper.send_tip( msg_wounded, sender_header, 0, 10, npc:character_icon(), "beep_1", "npc" )
+                            end
+                            
+                        elseif axr_companions.non_task_companions[npc:id()] then
+                            pr("rigging companion")
+                            local msg_comp = gts("st_rigged_msg_comp_".. tostring(math.random(4)))
+                            dynamic_news_helper.send_tip( msg_comp, sender_header, 0, 10, npc:character_icon(), "beep_1", "npc" )
+                            
+                        elseif (npc:general_goodwill(db.actor) >= 1000) then
+                            if 8 >= math.random(10) then
+                                pr("rigging friend")
+                                local msg_friend = gts("st_rigged_msg_friend_".. tostring(math.random(3)))
+                                dynamic_news_helper.send_tip( msg_friend, sender_header, 0, 10, npc:character_icon(), "beep_1", "npc" )                                    
+                            else
+                                pr("friend declined")
+                                local msg_friend_decline = gts("st_rigged_msg_friend_decline_".. tostring(math.random(3)))
+                                dynamic_news_helper.send_tip( msg_friend_decline, sender_header, 0, 10, npc:character_icon(), "beep_1", "npc" )
+                                hide_hud_inventory()
+                                return
+                            end
+
+                        elseif npc:see(db.actor) then
+                            if (npc:general_goodwill(db.actor) <= -1000) then
+                                if npc:character_community() ~= "zombied" then
+                                    pr("enemy noticed rigging")
+                                    local msg_enemy = gts("st_rigged_msg_enemy_".. tostring(math.random(2)))
+                                    dynamic_news_helper.send_tip( msg_enemy, sender_header, 0, 10, npc:character_icon(), "danger", "npc" )
+                                    db.storage[npc:id()].panicked_to_actor = true
+                                    detach_time = time_global() + math.random(5000,15000)
+                                end                                
+                            else
+                                if 2 >= math.random(10) then
+                                    pr("rigging neutral")
+                                    local msg_neutral = gts("st_rigged_msg_neutral_".. tostring(math.random(3)))
+                                    dynamic_news_helper.send_tip( msg_neutral, sender_header, 0, 10, npc:character_icon(), "beep_1", "npc" )                                    
+                                else
+                                    pr("neutral declined")
+                                    local msg_neutral_decline = gts("st_rigged_msg_neutral_decline_".. tostring(math.random(3)))
+                                    dynamic_news_helper.send_tip( msg_neutral_decline, sender_header, 0, 10, npc:character_icon(), "beep_1", "npc" )
+                                    hide_hud_inventory()
+                                    return
+                                end
+                            end
+                        end
+                        detach_time = time_global() + (math.random(2, 6) * 60000)
+                    end
+
+                    pr("rigging npc")
+                    attach_bomb_to_npc(obj, npc, delay, detach_time)
+                    add_explo_mapspot(obj, npc)
+
+                    CreateTimeEvent("pes_main", "release_explosive_item", 0, function()                                
+                        pr("releasing explosive item")
+                        alife_release_id(obj:id())
+                        return true
+                    end)
+                    hide_hud_inventory()
+                    return
+                end
+
+                if not targ_found then
+                    pr("no target found")
+                    actor_menu.set_msg(1, gts("st_plant_explosive_remote_pocket_nobody_unrigged_and_alive_nearby"),4)
+                    hide_hud_inventory()
+                end
+            end
+        end
+    end
+end
+
+function trigger_npc_mine(npc, data)
+    if not npc then return end
+    if is_empty(data) then return end
+    set_debug_level("player")
+    pr("triggering npc mine")
+    if dist_to_pos(npc) > TRIGGER_DIST then
+        pr("npc outside trigger dist")
+        return 
+    end
+    
+    time_triggered = time_global()
+    local id = npc:id()
+
+    if data.mode == DETONATE_MODES["remote"] then
+        pr("playing radio trigger noise")
+        explosive_triggered = true
+        snd_triggered:play(db.actor, 0, sound_object.s2d)
+    end
+
+    if axr_companions.non_task_companions[id] then pr("removing companion from squad") axr_companions.remove_from_actor_squad(npc) end
+    pr("spawning explovie")
+    local placeable_sect = ini_sys:r_string_ex(data.mine_type, "placeable_section")
+    local npc_pos = npc:position()
+    local npc_dir = npc:direction()
+
+    local neg_npc_dir = vector_rotate_y(npc_dir, 180):normalize() --vector():set(-npc_dir.x, -npc_dir.y, -npc_dir.z)
+    neg_npc_dir = vector_rotate_x(neg_npc_dir, 80):normalize()
+
+    local spawn_pos = vector():mad(npc_pos:add(0, 1, 0), neg_npc_dir, 1)
+    local se_explo = alife_create(placeable_sect, spawn_pos, db.actor:level_vertex_id(), db.actor:game_vertex_id())
+    pr("hf data")
+    local hf_data = hf_obj_manager.get_data(data.mine_id)
+    replace_explosive_info(hf_data["tbl_id"], se_explo.id)
+    hf_data["tbl_id"] = se_explo.id
+    hf_obj_manager.update_data(se_explo.id, hf_data)
+
+    txr_mines._mines[se_explo.id] = {
+        witnesses = data.witnesses
+    }
+
+    rigged_npcs[id] = {
+        triggered = true,
+        trigger_time = time_triggered,
+        triggered_id = se_explo.id
+    }
+
+    level.map_remove_object_spot(id, FACTION_ICONS[data.faction])
+    pr("triggering npc explosive for: %s", npc:id())
+end
+
+function check_rigged_npcs()
+    set_debug_level("all")
+    local tg = time_global()
+
+    for npc_id, data in pairs(rigged_npcs) do
+        local npc = get_unknown_object({id=npc_id}, "game")
+        if npc and IsStalker(npc) then
+            local faction = data.faction or npc:character_community()
+            local name = npc:character_name()
+            local id = npc_id
+            
+			local sender_header = strformat("%s, %s", name, gts(strformat("st_dyn_news_comm_%s_%s", faction, 6)))
+			local death_dropped = se_load_var(npc_id, name, "death_dropped")
+			if (death_dropped) then
+                pr("spawning attached bomb on npc e")
+				local pocket_bomb = alife_create_item(data.mine_type, data.npc)
+                local hf_data = hf_obj_manager.get_data(data.mine_id)
+                pr("hf data exists?: %s", is_not_empty(hf_data))
+                pr("hf data: %s", print_table(hf_data))
+                replace_explosive_info(hf_data["tbl_id"], pocket_bomb.id)
+                hf_data["tbl_id"] = pocket_bomb.id
+                hf_obj_manager.update_data(pocket_bomb.id, hf_data)
+                pr("removing map spot")
+				level.map_remove_object_spot(id, FACTION_ICONS[data.faction])
+				rigged_npcs[id] = nil
+			end
+
+            if not IsWounded(npc) and npc:alive() and data.detach_time and tg > data.detach_time  then
+                pr("npc is found bomb")
+				dynamic_news_helper.send_tip(gts("st_rigged_msg_enemy_detach_start_".. tostring(math.random(2))), sender_header, 0, 10, npc:character_icon(), "beep_2", "npc" )
+				data.detach_time = nil
+				data.detaching_time = tg + math.random(3000,10000)
+			end
+
+            if npc:alive() and contains(data, "detaching_time", true) and data.detaching_time ~= 0 then
+                pr("npc attempting to remove bomb")
+                add_npc_panic(id, data.detaching_time)
+                if tg > data.detaching_time then
+                    db.storage[npc:id()].panicked_to_actor = false
+                    if 3 <= math.random(1, 10) then
+                        pr("failed to remove")
+                        data.mode = DETONATE_MODES["timed"]
+                        dynamic_news_helper.send_tip(gts(strformat("st_rigged_msg_enemy_detach_fail_%s", math.random(2))), sender_header, 0, 10, npc:character_icon(), "beep_2", "npc" )
+                        remove_npc_panic(id)
+						trigger_npc_mine(npc, data)
+                    else
+                        pr("successfully removed")
+                        dynamic_news_helper.send_tip(gts(strformat("st_rigged_msg_enemy_detaching_%s", math.random(2))), sender_header, 0, 10, npc:character_icon(), "beep_2", "npc" )
+                        remove_npc_panic(id)
+                        rigged_npcs[id] = nil
+                    end
+                    data.detaching_time = nil
+                end
+            end
+
+            if data.triggered and tg > data.trigger_time + 300 then
+                pr("triggering bomb")
+                level.map_remove_object_spot(id, FACTION_ICONS[data.faction])
+                txr_mines.trigger_mine(data.triggered_id)
+                rigged_npcs[id] = nil
+            end
+        end
+    end
+end
+
+function clean_rigged_npcs(id)
+    if id then
+        rigged_npcs[id] = nil
+    else
+        for npc_id, data in pairs(rigged_npcs) do
+            local se_npc = alife_object(npc_id)
+            if not se_npc then
+                rigged_npcs[npc_id] = nil
+            end
+        end
+    end
+end
+
+
+-- Callbacks
+function on_item_take(obj)
+    local sect = obj:section()
+    if not is_placeable_explosive(sect) then return end
+    setup_explosive(obj)
+end
+
+function on_item_take_npc(npc, obj)
+    if npc:id() == AC_ID then return end
+    local sect = obj:section()
+    if is_placeable_explosive(sect) then return end
+end
+
+function on_key_release(key)
+    set_debug_level("player")
+    if not is_holding_radio() then return end
+
+    if key == TRIGGER_KEY then
+        pr("trigger key pressed")
+        local explosives = get_explosives_on_active_frequency()
+        if is_empty(explosives) then return end
+        pr("remote explosives found")
+        local explosive_id = table.remove(explosives) --explosives[#explosives]
+        pr("last_placed_id: %s", explosive_id)
+        if explosive_id then
+            if contains(txr_mines._mines, explosive_id, true) then
+                local wrapper = bind_hf_base.get_wrapper(explosive_id)
+                if wrapper.Detonate then
+                    wrapper:Detonate()
+                end
+            else
+                local npc_id = explosive_id
+                if not contains(rigged_npcs, npc_id, true) then return end
+                local data = rigged_npcs[npc_id]
+                local npc = data["npc"]
+                pr("trigger npc remote mine data: %s", print_table(data))
+                trigger_npc_mine(npc, data)
+            end
+        end
+    end
+end
+
+function on_option_change(options)
+    TRIGGER_KEY                           = options["trigger_key"]
+    MIN_FORGET_TIME                       = options["min_forget_time"]
+    MAX_FORGET_TIME                       = options["max_forget_time"]
+    FUSE_TIME 		                      = options["fuse_time"]
+    ALLOW_MAP_MARKERS                     = options["allow_map_markers"]
+    TRIGGER_RADIUS                        = options["trigger_radius"]    
+    POCKET_PLANT_DIST                     = options["pocket_plant_dist"] 
+    TRIGGER_DIST                          = options["radio_trigger_dist"]
+    TIMED_EXPLOSIVE_DELAY                 = options["timed_explosive_delay"]
+    PROXIMITY_EXPLOSIVE_DELAY             = options["proximity_explosive_delay"]
+    POCKET_TIMED_EXPLOSIVE_DELAY["short"] = options["pocket_timed_explosive_delay_short"]
+    POCKET_TIMED_EXPLOSIVE_DELAY["long"]  = options["pocket_timed_explosive_delay_long"]
+end
+
+function save_state(m_data)
+    clean_rigged_npcs()
+    m_data.rigged_npcs = rigged_npcs
+    m_data.explosive_info = explosive_info
+end
+
+function load_state(m_data)
+    rigged_npcs = m_data.rigged_npcs or {}
+    explosive_info = m_data.explosive_info or {}
+end
+
+function on_game_start()
+    RegisterScriptCallback("actor_on_item_take", on_item_take)
+    RegisterScriptCallback("npc_on_item_take", on_item_take_npc)
+    RegisterScriptCallback("on_key_release", on_key_release)
+    RegisterScriptCallback("save_state", save_state)
+    RegisterScriptCallback("load_state", load_state)
+    RegisterScriptCallback("pes_on_option_change", on_option_change)
+end

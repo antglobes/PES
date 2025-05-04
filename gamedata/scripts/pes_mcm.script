@@ -1,0 +1,75 @@
+AddScriptCallback("pes_on_option_change")
+
+print_table = ag_tables.print_table
+
+defaults = {
+    trigger_key                        = DIK_keys.DIK_V,
+    min_forget_time 	               = 60*10,
+    max_forget_time 	               = 60*30,
+    fuse_time 		                   = 5,
+    allow_map_markers                  = true,
+    trigger_radius                     = 2.5,
+    pocket_plant_dist                  = 3,
+    radio_trigger_dist                 = 100,
+    timed_explosive_delay              = 10,
+    proximity_explosive_delay          = 5,
+    pocket_timed_explosive_delay_short = 10,
+    pocket_timed_explosive_delay_long  = 30,
+    enable_debug                       = false,
+    debug_level                        = "player",
+}
+
+function pr(str, ...)
+    pes_utils.dbg_pr("[PES|MCM: %s", str, ...)
+end
+
+function get_config(key)
+    if ui_mcm then return ui_mcm.get("pes/"..key) else return defaults[key] end
+end
+
+function debugging_enabled()
+	return get_config("enable_debug")
+end
+
+function on_mcm_load()
+    return { id="pes", sh=true, gr={
+        {id="title", type="slide", link="ui_options_slider_player", text="ui_mcm_pes_title", size={512, 50}, spacing=20},
+        {id="trigger_key", type="key_bind", val=2, def=DIK_keys.DIK_V},
+        {id="min_forget_time", type="track", val=2, min=30, max=3600, step=60, def=600},
+        {id="max_forget_time", type="track", val=2, min=60, max=3600, step=60, def=1800},
+        {id="fuse_time", type="track", val=2, min=2, max=10, step=0.1, def=5},
+        {id="allow_map_markers", type="check", val=1, def=true},
+        {id="trigger_radius", type="track", val=2, min=0.1, max=5, step=0.1, def=2.5},
+        {id="pocket_plant_dist", type="track", val=2, min=0.5, max=5, step=0.1, def=3},
+        {id="radio_trigger_dist", type="track", val=2, min=1, max=500, step=1, def=100},
+        {id="timed_explosive_delay", type="track", val=2, min=1, max=60, step=1, def=10},
+        {id="proximity_explosive_delay", type="track", val=2, min=1, max=20, step=1, def=5},
+        {id="pocket_timed_explosive_delay_short", type="track", val=2, min=1, max=40, step=1, def=10},
+        {id="pocket_timed_explosive_delay_long", type="track", val=2, min=3, max=60, step=1, def=30},
+
+        {id="enable_debug", type="check", val=1, def=false},
+        {id="debug_level", type="list", val=0, def="player", precondition={debugging_enabled},
+				content={
+					{"player", "player"},
+					{"dev", "dev"},
+					{"all", "all"}
+				}
+			}
+        }
+    }
+end
+
+function on_option_change()
+    pr("Loading PES Options:")
+    local options = {}
+    for k, _ in pairs(defaults) do
+        options[k] = get_config(k)
+    end
+    SendScriptCallback("pes_on_option_change", options)
+    pr("%s", print_table(options))
+end
+
+function on_game_start()
+    RegisterScriptCallback("on_option_change", on_option_change)
+    on_option_change()
+end

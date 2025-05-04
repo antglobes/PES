@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="windows-1251"?>
+<string_table>
+
+    <string id="st_pes_dialog_give_explosives_start_1">
+        <text>Hey %s, can you carry something for me?</text>
+    </string>
+    <string id="st_pes_dialog_give_explosives_start_2">
+        <text>%s, i have something for you!</text>
+    </string>
+    <string id="st_pes_dialog_give_explosives_start_3">
+        <text>Here take this, %s.</text>
+    </string>
+
+    <string id="st_pes_dialog_give_explosives_reply_1">
+        <text>Sure what is it?</text>
+    </string>
+    <string id="st_pes_dialog_give_explosives_reply_2">
+        <text>What do you have for me?</text>
+    </string>
+    <string id="st_pes_dialog_give_explosives_reply_3">
+        <text>Tell me what it is first.</text>
+    </string>
+
+    <string id="st_pes_dialog_explain_explosives_truth_1">
+        <text>Some explosives, handle them with care.</text>
+    </string>
+    <string id="st_pes_dialog_explain_explosives_truth_2">
+        <text>%s, to be exact.</text>
+    </string>
+    <string id="st_pes_dialog_explain_explosives_truth_3">
+        <text>Oh just an armed explosive</text>
+    </string>
+
+    <string id="st_pes_dialog_explain_explosives_lie_1">
+        <text>Oh nothing, just some junk ...</text>
+    </string>
+    <string id="st_pes_dialog_explain_explosives_lie_2">
+        <text>It's a suprise but you can't open it yet.</text>
+    </string>
+    <string id="st_pes_dialog_explain_explosives_lie_3">
+        <text>Don't worry about it.</text>
+    </string>
+
+    <string id="st_pes_dialog_explain_explosives_reply_acceptance_1">
+        <text>Yeah i'll take them then.</text>
+    </string>
+    <string id="st_pes_dialog_explain_explosives_reply_acceptance_2">
+        <text>I'll take good care of them.</text>
+    </string>
+    <string id="st_pes_dialog_explain_explosives_reply_acceptance_3">
+        <text>Give em here, i trust you.</text>
+    </string>
+
+    <string id="st_pes_dialog_explain_explosives_reply_reluctant_acceptance_1">
+        <text>Ok but you'll come back for them, right?</text>
+    </string>
+    <string id="st_pes_dialog_explain_explosives_reply_reluctant_acceptance_2">
+        <text>Hmmmm, alright then ...</text>
+    </string>
+    <string id="st_pes_dialog_explain_explosives_reply_reluctant_acceptance_3">
+        <text>Sure, we are cool right?</text>
+    </string>
+
+    <string id="st_pes_dialog_explain_explosives_reply_refusal_1">
+        <text>I'm okay, thanks.</text>
+    </string>
+    <string id="st_pes_dialog_explain_explosives_reply_refusal_2">
+        <text>How about you hold on to them instead?</text>
+    </string>
+    <string id="st_pes_dialog_explain_explosives_reply_refusal_3">
+        <text>Yeahhh, i'm not taking that.</text>
+    </string>
+
+    <string id="st_pes_dialog_explain_explosives_reply_refusal_angered_1">
+        <text>And become a walking landmine? Fuck no.</text>
+    </string>
+    <string id="st_pes_dialog_explain_explosives_reply_refusal_angered_2">
+        <text>Do you think i'm that dumb, fuck off stalker</text>
+    </string>
+    <string id="st_pes_dialog_explain_explosives_reply_refusal_angered_3">
+        <text>I got a better idea, how about you shove it up your ass!</text>
+    </string>
+</string_table>

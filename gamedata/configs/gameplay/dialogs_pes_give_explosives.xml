@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="windows-1251"?>
+<game_dialogs>
+    <dialog id="pes_give_explosives">
+        <precondition>dialogs_pes.give_explosives_cond</precondition>
+        <phrase_list>
+            <phrase id="0">
+                <script_text>dialogs_pes.give_explosives_start</script_text>
+                <next>1</next>
+            </phrase>
+            <phrase id="1">
+                <script_text>dialogs_pes.give_explosives_reply</script_text>
+                <next>20</next>
+                <next>21</next>
+            </phrase>
+            <phrase id="20">
+                <script_text>dialogs_pes.give_explosives_explain_truth</script_text>
+                <give_info>give_explosives_truth</give_info>
+                <next>3</next>
+            </phrase>
+            <phrase id="21">
+                <script_text>dialogs_pes.give_explosives_explain_lie</script_text>
+                <give_info>give_explosives_lie</give_info>
+                <next>3</next>
+            </phrase>
+            <phrase id="3">
+                <script_text>dialogs_pes.give_explosives_explain_reply</script_text>
+                <action>dialogs_pes.give_explosives_action</action>
+            </phrase>
+        </phrase_list>
+    </dialog>
+</game_dialogs>

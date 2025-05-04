@@ -1,0 +1,72 @@
+<ied_prox>
+    <level_map spot="ied_prox_spot"/>
+    <mini_map spot="ied_prox_spot"/>
+</ied_prox>
+
+<ied_timer>
+    <level_map spot="ied_timer_spot"/>
+    <mini_map spot="ied_timer_spot"/>
+</ied_timer>
+
+<ied_remote>
+    <level_map spot="ied_remote_spot"/>
+    <mini_map spot="ied_remote_spot"/>
+</ied_remote>
+
+<ied_pocket>
+    <level_map spot="ied_pocket_spot"/>
+    <mini_map spot="ied_pocket_spot"/>
+</ied_pocket>
+
+<ied_prox_spot width="20" height="20" alignment="c" stretch="1" scale="1" scale_min="1.0" scale_max="1.2">
+    <texture>ied_prox_spot</texture>
+</ied_prox_spot>
+
+<ied_timer_spot width="20" height="20" alignment="c" stretch="1" scale="1" scale_min="1.0" scale_max="1.2">
+    <texture>ied_timer_spot</texture>
+</ied_timer_spot>
+
+<ied_remote_spot width="20" height="20" alignment="c" stretch="1" scale="1" scale_min="1.0" scale_max="1.2">
+    <texture>ied_remote_spot</texture>
+</ied_remote_spot>
+
+<ied_pocket_spot width="20" height="20" alignment="c" stretch="1" scale="1" scale_min="1.0" scale_max="1.2">
+    <texture>ied_pocket_spot</texture>
+</ied_pocket_spot>
+
+
+<ied_rpg_prox>
+    <level_map spot="ied_rpg_prox_spot"/>   
+    <mini_map spot="ied_rpg_prox_spot"/>
+</ied_rpg_prox>
+
+<ied_rpg_timer>
+    <level_map spot="ied_rpg_timer_spot"/>
+    <mini_map spot="ied_rpg_timer_spot"/>
+</ied_rpg_timer>
+
+<ied_rpg_remote>
+    <level_map spot="ied_rpg_remote_spot"/>
+    <mini_map spot="ied_rpg_remote_spot"/>
+</ied_rpg_remote>
+
+<ied_rpg_pocket>
+    <level_map spot="ied_rpg_pocket_spot"/>
+    <mini_map spot="ied_rpg_pocket_spot"/>
+</ied_rpg_pocket>
+
+<ied_rpg_prox_spot width="20" height="20" alignment="c" stretch="1" scale="1" scale_min="1.0" scale_max="1.2">
+    <texture>ied_rpg_prox_spot</texture>
+</ied_rpg_prox_spot>
+
+<ied_rpg_timer_spot width="20" height="20" alignment="c" stretch="1" scale="1" scale_min="1.0" scale_max="1.2">
+    <texture>ied_rpg_timer_spot</texture>
+</ied_rpg_timer_spot>
+
+<ied_rpg_remote_spot width="20" height="20" alignment="c" stretch="1" scale="1" scale_min="1.0" scale_max="1.2">
+    <texture>ied_rpg_remote_spot</texture>
+</ied_rpg_remote_spot>
+
+<ied_rpg_pocket_spot width="20" height="20" alignment="c" stretch="1" scale="1" scale_min="1.0" scale_max="1.2">
+    <texture>ied_rpg_pocket_spot</texture>
+</ied_rpg_pocket_spot>
