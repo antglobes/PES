@@ -82,12 +82,12 @@ function give_explosives_start()
     local npc = db.actor:get_talking_npc()
     if not npc then return end
 
-    local name = npc:character_name()
-    local speaker_name = "stalker"
+    local speaker_name =  npc:character_name()
     local faction = npc:character_community()
 
     local goodwill = get_faction_goodwill(npc, db.actor)
     local polarity, amount = determine_goodwill_amount(goodwill)
+
     if polarity then 
         if amount ~= "high" then
             printf("npc is unknown and not high goodwill")
@@ -96,13 +96,6 @@ function give_explosives_start()
             printf("npc is unknown and high goodwill")
             speaker_name = STALKER_GREETINGS[math.random(1, #STALKER_GREETINGS)]
         end        
-    end
-
-    if contains(_G, factionID_hud_mcm, true) then
-        if contains(factionID_hud_mcm.idtable, name, true) then
-            printf("npc is known")
-            speaker_name = name        
-        end
     end
 
     local rnd = math.random(1, 3)

@@ -8,6 +8,7 @@ gts = ag_strings.get_translation
 decapitalise = ag_strings.decapitalise
 print_table = ag_tables.print_table
 vector_rotate_x = ag_math.vector_rotate_x
+table_extend = ag_tables.table_extend
 
 -- Utils
 is_placeable_explosive = pes_utils.is_placeable_explosive
@@ -20,6 +21,7 @@ filter_debug_msg = pes_utils.filter_debug_msg
 -- base_radio_update = item_radio.UI3D_RF.Update
 base_manage_timer_explosives = txr_mines.manage_timer_explosives
 base_actor_on_update = txr_mines.actor_on_update
+base_UI3D_RF_Update = item_radio.UI3D_RF.Update
 
 -- Constants
 TRIGGER_KEY                  = DIK_keys.DIK_V
@@ -43,6 +45,7 @@ rigged_npcs = {}
 local time_triggered = 0
 local explosive_triggered = false
 local dbg_lvl = "player"
+if _G[catsy_nerfs_mcm] then item_radio.explosive_triggered = false end
 
 -- Tables
 POCKET_TIMED_EXPLOSIVE_DELAY = {
@@ -59,6 +62,7 @@ EXPLOSIVE_TYPE = {
 	rpg_new_blow  = gts("st_plant_explosive_remote_ied_rpg_new"),
     ied_new_blow  = gts("st_plant_explosive_remote_ied_new"),
 }
+
 FACTION_TEXT = {
 	["stalker"]   = gts("st_rigged_community_stalker"),
 	["bandit"]    = gts("st_rigged_community_bandit"),
@@ -102,12 +106,17 @@ end
 
 -- Binder
 function init(obj)
+    pr("init placeable explo binder")
     obj:bind_object(placeable_explosive_wrapper(obj).binder)
 end
 
 class "placeable_explosive_wrapper" (bind_hf_base.hf_binder_wrapper)
 function placeable_explosive_wrapper:__init(obj) super(obj)
     local data = hf_obj_manager.get_data(self.object:id())
+    if not data or  not contains(data, "tbl_id", true) then
+        self:net_destroy()
+        return
+    end
     local tbl_id = data["tbl_id"]
     local info = explosive_info[tbl_id]
 
@@ -281,8 +290,8 @@ function placeable_explosive_wrapper:Detonate()
         return 
     end
     txr_mines.trigger_mine(self.object:id())
-    explosive_triggered = true
     time_triggered = time_global()
+    set_explosive_triggered(true)
     snd_triggered:play(db.actor, 0, sound_object.s2d)
     hf_obj_manager.cleanup_data(self.object:id())
 	alife_release(self.object)
@@ -393,63 +402,66 @@ end
 
 
 -- Monkey Patches
-function item_radio.UI3D_RF.Update(self)
-    CUIScriptWnd.Update(self)
-	
-	local tg = time_global()
-	
-	-- LED flashing
-	if (tg > item_radio.tg_led + 1000) and not explosive_triggered then
-		tg_led = tg
-		self.m_led:Show(not self.m_led:IsShown())
-	elseif (tg > item_radio.tg_led + 50) and explosive_triggered then
-		item_radio.tg_led = tg
-		self.m_led:Show(not self.m_led:IsShown())
-	end
-	
-	-- Emissions
-	if GetEvent("surge", "state") or GetEvent("psi_storm", "state") then
-		if (tg > item_radio.tg_emission + 200) then
-			item_radio.tg_emission = tg
-			
-			self.m_led:Show((math.random(1,100) < 50) and true or false)
-			item_radio._freq = math.random(item_radio._min, item_radio._max)
-		else
-			return
-		end
-		
-	-- Normal readings
-	else
-		if self.freq == item_radio._freq then
-			return
-		end
-		self.freq = item_radio._freq
-	end
+if not _G["catsy_nerfs_mcm"] then
+    function item_radio.UI3D_RF.Update(self)
+    -- Nerfs Patch
+        CUIScriptWnd.Update(self)
+        
+        local tg = time_global()
+        
+        -- LED flashing
+        if (tg > item_radio.tg_led + 1000) and not explosive_triggered then
+            item_radio.tg_led = tg
+            self.m_led:Show(not self.m_led:IsShown())
+        elseif (tg > item_radio.tg_led + 50) and explosive_triggered then
+            item_radio.tg_led = tg
+            self.m_led:Show(not self.m_led:IsShown())
+        end
+        
+        -- Emissions
+        if GetEvent("surge", "state") or GetEvent("psi_storm", "state") then
+            if (tg > item_radio.tg_emission + 200) then
+                item_radio.tg_emission = tg
+                
+                self.m_led:Show((math.random(1,100) < 50) and true or false)
+                item_radio._freq = math.random(item_radio._min, item_radio._max)
+            else
+                return
+            end
+            
+        -- Normal readings
+        else
+            if self.freq == item_radio._freq then
+                return
+            end
+            self.freq = item_radio._freq
+        end
 
-	local s_freq = tostring(item_radio._freq)
-	local seg1, seg2, seg3
-	
-	if (item_radio._freq > 99) then
-		seg1 = strformat("green_%s", s_freq:sub(1, 1))
-		seg2 = strformat("green_%s", s_freq:sub(2, 2))
-		seg3 = strformat("green_%s", s_freq:sub(3, 3))
-	elseif (item_radio._freq > 9) then
-		seg1 = "green_0"
-		seg2 = strformat("green_%s", s_freq:sub(1, 1))
-		seg3 = strformat("green_%s", s_freq:sub(2, 2))
-	elseif (item_radio._freq > 0) then
-		seg1 = "green_0"
-		seg2 = "green_0"
-		seg3 = strformat("green_%s", s_freq:sub(1, 1))
-	else
-		seg1 = "green_0"
-		seg2 = "green_0"
-		seg3 = "green_0"
-	end
-	
-	self.m_seg1:InitTextureEx(seg1, "hud\\p3d")
-	self.m_seg2:InitTextureEx(seg2, "hud\\p3d")
-	self.m_seg3:InitTextureEx(seg3, "hud\\p3d")
+        local s_freq = tostring(item_radio._freq)
+        local seg1, seg2, seg3
+        
+        if (item_radio._freq > 99) then
+            seg1 = strformat("green_%s", s_freq:sub(1, 1))
+            seg2 = strformat("green_%s", s_freq:sub(2, 2))
+            seg3 = strformat("green_%s", s_freq:sub(3, 3))
+        elseif (item_radio._freq > 9) then
+            seg1 = "green_0"
+            seg2 = strformat("green_%s", s_freq:sub(1, 1))
+            seg3 = strformat("green_%s", s_freq:sub(2, 2))
+        elseif (item_radio._freq > 0) then
+            seg1 = "green_0"
+            seg2 = "green_0"
+            seg3 = strformat("green_%s", s_freq:sub(1, 1))
+        else
+            seg1 = "green_0"
+            seg2 = "green_0"
+            seg3 = "green_0"
+        end
+        
+        self.m_seg1:InitTextureEx(seg1, "hud\\p3d")
+        self.m_seg2:InitTextureEx(seg2, "hud\\p3d")
+        self.m_seg3:InitTextureEx(seg3, "hud\\p3d")
+    end
 end
 
 function txr_mines.generic_on_update(npc)
@@ -460,8 +472,7 @@ function txr_mines.generic_on_update(npc)
     if not npc:alive() then return end
     if is_empty(txr_mines._mines) then return end
     for mine_id, data in pairs(txr_mines._mines) do
-        local tbl_id = hf_obj_manager.get_data(mine_id).tbl_id
-        if has_explosive_info(tbl_id) then
+        
             local mine = get_unknown_object({id=mine_id}, "game")
             if 
                 mine
@@ -474,7 +485,7 @@ function txr_mines.generic_on_update(npc)
                     txr_mines.trigger_mine(mine_id)
                 end
             end
-        end
+        
     end
 end
 
@@ -632,11 +643,12 @@ end
 function get_explosives_on_active_frequency()
     local explosives = {}
     for mine_id, data in pairs(txr_mines._mines) do
-        local data = hf_obj_manager.get_data(mine_id)
-        if data and contains(data, "tbl_id", true) then
-            local tbl_id = data["tbl_id"]
+        local hf_data = hf_obj_manager.get_data(mine_id)
+        if hf_data and contains(hf_data, "tbl_id", true) then
+            local tbl_id = hf_data["tbl_id"]
             if has_explosive_info(tbl_id) then
-                --pr("mine: %s data: %s", mine_id, utils_data.print_table(data, nil, true))
+                pr("mine: %s data: %s", mine_id, print_table(data))
+                pr("radio freq: %s", item_radio.get_freq())
                 local mine = get_unknown_object({id=mine_id}, "game")
                 if 
                     mine
@@ -665,8 +677,15 @@ end
 function radio_beep(beep_time)
     local tg = time_global()
     if (tg > (time_triggered + beep_time)) then
-        explosive_triggered = false
+        set_explosive_triggered(false)
     end
+end
+
+function set_explosive_triggered(state)
+    set_debug_level("all")
+    pr("setting explosive triggered to %s", state)
+    explosive_triggered = state
+    item_radio.explosive_triggered = state
 end
 
 function add_npc_panic(id, delay)
@@ -865,8 +884,8 @@ function trigger_npc_mine(npc, data)
     local id = npc:id()
 
     if data.mode == DETONATE_MODES["remote"] then
-        pr("playing radio trigger noise")
-        explosive_triggered = true
+        pr("playing radio trigger noise & led")
+        set_explosive_triggered(true)
         snd_triggered:play(db.actor, 0, sound_object.s2d)
     end
 
@@ -987,12 +1006,6 @@ function on_item_take(obj)
     setup_explosive(obj)
 end
 
-function on_item_take_npc(npc, obj)
-    if npc:id() == AC_ID then return end
-    local sect = obj:section()
-    if is_placeable_explosive(sect) then return end
-end
-
 function on_key_release(key)
     set_debug_level("player")
     if not is_holding_radio() then return end
@@ -1050,7 +1063,6 @@ end
 
 function on_game_start()
     RegisterScriptCallback("actor_on_item_take", on_item_take)
-    RegisterScriptCallback("npc_on_item_take", on_item_take_npc)
     RegisterScriptCallback("on_key_release", on_key_release)
     RegisterScriptCallback("save_state", save_state)
     RegisterScriptCallback("load_state", load_state)

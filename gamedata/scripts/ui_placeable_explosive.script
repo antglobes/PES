@@ -20,6 +20,17 @@ snd_armed = sound_object("pes\\ied_armed")
 snd_disarmed = sound_object("pes\\ied_disarmed")
 snd_incorrect = sound_object("pes\\incorrect_code")
 
+math.randomseed(os.date("%H%M%S"))
+
+local wire_pairs = {
+    [1] = "A",
+    [2] = "B",
+    [3] = "C",
+    [4] = "D",
+    [5] = "E",
+    [6] = "F",
+}
+
 -- Debugging
 function pr(str, ...)
 	if not filter_debug_msg(dbg_lvl) then return end
@@ -321,4 +332,18 @@ function UIExplosiveNumpad:Close()
 	self:HideDialog()
 	self.st:TextControl():SetText("")
 	Unregister_UI("UIExplosiveNumpad")
+end
+
+function on_option_change()
+	FREQ_MIN = item_radio._min
+	if _G["catsy_nerfs_mcm"] then
+		FREQ_MAX = ui_mcm.get("nerfs/nerfmain/max_freq")
+	else
+		FREQ_MAX = item_radio._max
+	end
+end
+
+function on_game_start()
+	RegisterScriptCallback("on_option_change", on_option_change)
+	on_option_change()
 end
